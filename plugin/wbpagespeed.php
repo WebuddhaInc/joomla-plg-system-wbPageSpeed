@@ -21,13 +21,26 @@ if( !function_exists('inspect') ){
 
 class plgSystemWbPageSpeed extends JPlugin {
 
+  /**
+   * Runtime
+   */
+  private $_uri_root = null;
+  private $_path_root = null;
+
   /*
    *
    *  Run after system dispatch
    *
    */
   public function __construct(&$subject, $config){
-    parent::__construct($subject, $config);
+
+    // Initialize
+      parent::__construct($subject, $config);
+
+    // Base Path
+      $this->_uri_root = JURI::root(true);
+      $this->_path_root = substr(JPATH_BASE, 0, -(strlen($this->_uri_root)));
+
   }
 
   /*
@@ -49,10 +62,10 @@ class plgSystemWbPageSpeed extends JPlugin {
   }
 
   public function onAfterRender(){
+
     if ($this->params->get('compress_html', 1)) {
       $app = JFactory::getApplication();
       $body = $app->getBody();
-
       $script_blocks = array();
       $body = preg_replace_callback('/\<script.*?\<\/script>/s', function($match) use (&$script_blocks) {
         $script_blocks[] = reset($match);
@@ -64,6 +77,7 @@ class plgSystemWbPageSpeed extends JPlugin {
       }, $body);
       $app->setBody( $body );
     }
+
   }
 
   /**
@@ -128,7 +142,7 @@ class plgSystemWbPageSpeed extends JPlugin {
                 $url = implode('/',$path).'/'.$url;
               }
             } while($limit-- > 0);
-            $impFileData = file_get_contents($mainframe->getCfg('absolute_path') . $url);
+            $impFileData = file_get_contents(JPATH_BASE . $url);
             $_tmpPath = $_cssUrlReplace_path;
             $_cssUrlReplace_path = split('/',$url); array_pop($_cssUrlReplace_path);
             $impFileData =
@@ -164,13 +178,18 @@ class plgSystemWbPageSpeed extends JPlugin {
 
         // Collect Files for Processing
           foreach( $styleSheets AS $cssFile => $cssParams ){
-            if (strpos($cssFile, '/') !== 0)
-              $cssFile = '/' . $cssFile;
-            if (is_file(JPATH_BASE . $cssFile) ){
-              $styleSheetsProcess[ $cssFile ] = $cssParams;
+            if (preg_match('/[a-z]+\:/',$cssFile)) {
+              $styleSheetsFinal[ $cssFile ] = $cssParams;
             }
             else {
-              $styleSheetsFinal[ $cssFile ] = $cssParams;
+              if (strpos($cssFile, '/') !== 0)
+                $cssFile = $this->_uri_root . '/' . $cssFile;
+              if (is_file($this->_path_root . $cssFile) ){
+                $styleSheetsProcess[ $cssFile ] = $cssParams;
+              }
+              else {
+                $styleSheetsFinal[ $cssFile ] = $cssParams;
+              }
             }
           }
 
@@ -179,7 +198,7 @@ class plgSystemWbPageSpeed extends JPlugin {
 
             // Calculate Cache Filename
               $cacheFile = JPATH_CACHE . '/' . ($template.'-'.md5(serialize(',',$styleSheetsProcess).date('Y-m-d H')).'.css');
-              $cacheLink = substr($cacheFile,strlen(JPATH_BASE));
+              $cacheLink = substr($cacheFile,strlen($this->_path_root));
 
             // Clear Cache
               $this->clear_docCache('/'.$template.'\-.*\.css/');
@@ -191,7 +210,7 @@ class plgSystemWbPageSpeed extends JPlugin {
                   $cssContent = '';
                   $filesProcessed = 0;
                   foreach( $styleSheetsProcess AS $cssFile => $cssParams ){
-                    $cssFileData = file_get_contents(JPATH_BASE . $cssFile);
+                    $cssFileData = file_get_contents($this->_path_root . $cssFile);
                     $_cssUrlReplace_path = split('/',$cssFile); array_pop($_cssUrlReplace_path);
                     $cssFileData = preg_replace_callback('/url\(.*?\)/','_cssUrlReplace',$cssFileData);
                     $cssFileData = preg_replace_callback('/\@import\s+url\(.*?\)\;*/','_cssImportReplace',$cssFileData);
@@ -256,39 +275,20 @@ class plgSystemWbPageSpeed extends JPlugin {
     // Parse
       if( $scripts ){
 
-        // JS URL Replacement Callback
-          global $_jsUrlReplace_path;
-          function _jsUrlReplace($match){
-            global $_jsUrlReplace_path;
-            $path = $_jsUrlReplace_path;
-            $url = $match[0];
-            $url = preg_replace('/^url\(|\)$/','',$url);
-            $url = preg_replace('/^[\'\"]+|[\'\"]+$/','',$url);
-            $limit = 10;
-            do {
-              if( preg_match('/^\//',$url) ){
-                return 'url('.$url.')';
-              } elseif( preg_match('/^\.\.\//',$url) ){
-                $url = preg_replace('/^\.\.\//','',$url);
-                array_pop($path);
-              } elseif( preg_match('/^\.\//',$url) ){
-                $url = preg_replace('/^\.\//','',$url);
-              } else {
-                $url = implode('/',$path).'/'.$url;
-              }
-            } while($limit-- > 0);
-            return $match[0];
-          }
-
         // Collect Files for Processing
           foreach( $scripts AS $jsFile => $jsParams ){
-            if (strpos($jsFile, '/') !== 0)
-              $jsFile = '/' . $jsFile;
-            if (is_file(JPATH_BASE . $jsFile) ){
-              $scriptsProcess[ $jsFile ] = $jsParams;
+            if (preg_match('/[a-z]+\:/',$jsFile)) {
+              $scriptsFinal[ $jsFile ] = $jsParams;
             }
             else {
-              $scriptsFinal[ $jsFile ] = $jsParams;
+              if (strpos($jsFile, '/') !== 0)
+                $jsFile = $this->_uri_root . '/' . $jsFile;
+              if (is_file($this->_path_root . $jsFile) ){
+                $scriptsProcess[ $jsFile ] = $jsParams;
+              }
+              else {
+                $scriptsFinal[ $jsFile ] = $jsParams;
+              }
             }
           }
 
@@ -297,7 +297,7 @@ class plgSystemWbPageSpeed extends JPlugin {
 
             // Calculate Cache Filename
               $cacheFile = JPATH_CACHE . '/' . ($template.'-'.md5(serialize(',',$scriptsProcess).date('Y-m-d H')).'.js');
-              $cacheLink = substr($cacheFile,strlen(JPATH_BASE));
+              $cacheLink = substr($cacheFile,strlen($this->_path_root));
 
             // Clear Cache
               $this->clear_docCache('/'.$template.'\-.*\.js/');
@@ -309,8 +309,7 @@ class plgSystemWbPageSpeed extends JPlugin {
                   $jsContent = '';
                   $filesProcessed = 0;
                   foreach( $scriptsProcess AS $jsFile => $jsParams ){
-                    $_jsUrlReplace_path = split('/',$jsFile); array_pop($_jsUrlReplace_path);
-                    $jsFileData = file_get_contents(JPATH_BASE . $jsFile);
+                    $jsFileData = file_get_contents($this->_path_root . $jsFile);
                     $jsFileData = preg_replace('/\n[\t\s]+/',"\n",$jsFileData);
                     $jsFileData = preg_replace('/[\n\r]+/',"\r\n",$jsFileData);
                     /**

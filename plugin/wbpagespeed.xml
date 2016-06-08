@@ -12,11 +12,15 @@
   <config>
     <fields name="params">
       <fieldset name="basic">
-        <field name="compress_css" type="radio" default="0" label="Compress CSS" description="">
+        <field name="compress_css" type="radio" default="1" label="Compress CSS" description="">
           <option value="0">No</option>
           <option value="1">Yes</option>
         </field>
-        <field name="compress_js" type="radio" default="0" label="Compress JS" description="">
+        <field name="compress_js" type="radio" default="1" label="Compress JS" description="">
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </field>
+        <field name="compress_html" type="radio" default="1" label="Compress HTML" description="">
           <option value="0">No</option>
           <option value="1">Yes</option>
         </field>
