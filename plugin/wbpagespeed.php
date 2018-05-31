@@ -38,8 +38,9 @@ class plgSystemWbPageSpeed extends JPlugin {
       parent::__construct($subject, $config);
 
     // Base Path
-      $this->_uri_root = JURI::root(true);
-      $this->_path_root = substr(JPATH_BASE, 0, -(strlen($this->_uri_root)));
+      $this->_uri       = JURI::root();
+      $this->_uri_root  = JURI::root(true);
+      $this->_path_root = strlen($this->_uri_root) ? substr(JPATH_BASE, 0, -(strlen($this->_uri_root))) : JPATH_BASE;
 
   }
 
@@ -51,17 +52,21 @@ class plgSystemWbPageSpeed extends JPlugin {
    */
   public function onBeforeCompileHead(){
 
-    if ($this->params->get('compress_js', 1)) {
-      $this->process_docScripts();
-    }
+    if (JFactory::getApplication()->isAdmin())
+      return;
 
-    if ($this->params->get('compress_css', 1)) {
+    if ($this->params->get('compress_js', 1))
+      $this->process_docScripts();
+
+    if ($this->params->get('compress_css', 1))
       $this->process_docStylesheets();
-    }
 
   }
 
   public function onAfterRender(){
+
+    if (JFactory::getApplication()->isAdmin())
+      return;
 
     if ($this->params->get('compress_html', 1)) {
       $app = JFactory::getApplication();
@@ -96,7 +101,7 @@ class plgSystemWbPageSpeed extends JPlugin {
         while(false !== ($file = readdir($dir))) {
           $cacheFile = JPATH_CACHE.'/'.$file;
           if( preg_match($match, $file) )
-            if( filemtime($cacheFile) < $cacheTime )
+            if( true || filemtime($cacheFile) < $cacheTime )
               @unlink($cacheFile);
         }
         closedir($dir);
@@ -178,13 +183,18 @@ class plgSystemWbPageSpeed extends JPlugin {
 
         // Collect Files for Processing
           foreach( $styleSheets AS $cssFile => $cssParams ){
+            if (strpos($cssFile, $this->_uri) === 0){
+              $cssFile = substr($cssFile, strlen($this->_uri)-1);
+            }
             if (preg_match('/[a-z]+\:/',$cssFile)) {
               $styleSheetsFinal[ $cssFile ] = $cssParams;
             }
             else {
               if (strpos($cssFile, '/') !== 0)
                 $cssFile = $this->_uri_root . '/' . $cssFile;
-              if (is_file($this->_path_root . $cssFile) ){
+              if (strpos($cssFile, '?') !== false)
+                $cssFile = substr($cssFile, 0, strpos($cssFile, '?'));
+              if (is_file($this->_path_root . $cssFile)){
                 $styleSheetsProcess[ $cssFile ] = $cssParams;
               }
               else {
@@ -228,7 +238,7 @@ class plgSystemWbPageSpeed extends JPlugin {
                       .= '/* inc:'.preg_replace('/^.*\//','',$cssFile).' */'
                       . "\n"
                       . $cssFileData
-                      . "\n";
+                      . "\n\n";
                     $filesProcessed++;
                   }
 
@@ -241,8 +251,8 @@ class plgSystemWbPageSpeed extends JPlugin {
 
             // Push Final
               $styleSheetsFinal[ $cacheLink ] = array(
-                'mime'  => 'text/css',
-                'media' => null,
+                'mime'    => 'text/css',
+                'media'   => "all",
                 'attribs' => array(
                   )
                 );
@@ -277,12 +287,17 @@ class plgSystemWbPageSpeed extends JPlugin {
 
         // Collect Files for Processing
           foreach( $scripts AS $jsFile => $jsParams ){
+            if (strpos($jsFile, $this->_uri) === 0){
+              $jsFile = substr($jsFile, strlen($this->_uri)-1);
+            }
             if (preg_match('/[a-z]+\:/',$jsFile)) {
               $scriptsFinal[ $jsFile ] = $jsParams;
             }
             else {
               if (strpos($jsFile, '/') !== 0)
                 $jsFile = $this->_uri_root . '/' . $jsFile;
+              if (strpos($jsFile, '?') !== false)
+                $jsFile = substr($jsFile, 0, strpos($jsFile, '?'));
               if (is_file($this->_path_root . $jsFile) ){
                 $scriptsProcess[ $jsFile ] = $jsParams;
               }
