@@ -24,8 +24,10 @@ class plgSystemWbPageSpeed extends JPlugin {
   /**
    * Runtime
    */
-  private $_uri_root = null;
-  private $_path_root = null;
+  private $_uri_root     = null;
+  private $_path_root    = null;
+  private $_cache_key    = null;
+  private $_cache_active = false;
 
   /*
    *
@@ -42,6 +44,27 @@ class plgSystemWbPageSpeed extends JPlugin {
       $this->_uri_root  = JURI::root(true);
       $this->_path_root = strlen($this->_uri_root) ? substr(JPATH_BASE, 0, -(strlen($this->_uri_root))) : JPATH_BASE;
 
+    // Testing Page Cache
+      if ($this->_cache_active && $_SERVER['REQUEST_METHOD'] == 'GET') {
+        $this->_cache = JFactory::getCache('plg_system_wbpagespeed', 'page');
+        $this->_cache_key = md5(serialize(array($_SERVER['SCRIPT_URI'], $_SERVER['SCRIPT_FILENAME'], $_REQUEST)));
+        if ($this->_cache->contains( $this->_cache_key, 'plg_system_wbpagespeed')){
+          $data = $this->_cache->get( $this->_cache_key, 'plg_system_wbpagespeed');
+          echo $data['body'];
+          echo '<!-- '.$data['time'].' -->';
+          exit;
+        }
+      }
+
+  }
+
+  /**
+   * [getRequestCache description]
+   * @param  [type] $key [description]
+   * @return [type]      [description]
+   */
+  public function getRequestCache( $key ){
+    return JFactory::getApplication()->getBody();
   }
 
   /*
@@ -82,6 +105,13 @@ class plgSystemWbPageSpeed extends JPlugin {
       }, $body);
       $app->setBody( $body );
     }
+
+    // Cache
+    if (isset($this->_cache))
+      $this->_cache->store( array(
+        'time' => time(),
+        'body' => JFactory::getApplication()->getBody()
+        ), $this->_cache_key, 'plg_system_wbpagespeed' );
 
   }
 
