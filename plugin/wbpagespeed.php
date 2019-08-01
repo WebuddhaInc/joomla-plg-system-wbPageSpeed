@@ -26,6 +26,7 @@ class plgSystemWbPageSpeed extends JPlugin {
    */
   private $_uri_root     = null;
   private $_path_root    = null;
+  private $_cache_time   = null;
   private $_cache_key    = null;
   private $_cache_active = false;
 
@@ -40,9 +41,10 @@ class plgSystemWbPageSpeed extends JPlugin {
       parent::__construct($subject, $config);
 
     // Base Path
-      $this->_uri       = JURI::root();
-      $this->_uri_root  = JURI::root(true);
-      $this->_path_root = strlen($this->_uri_root) ? substr(JPATH_BASE, 0, -(strlen($this->_uri_root))) : JPATH_BASE;
+      $this->_uri         = JURI::root();
+      $this->_uri_root    = JURI::root(true);
+      $this->_path_root   = strlen($this->_uri_root) ? substr(JPATH_BASE, 0, -(strlen($this->_uri_root))) : JPATH_BASE;
+      $this->_cache_time  = $this->params->get('cache_time', JFactory::getConfig()->get('cachetime'));
 
     // Testing Page Cache
       if ($this->_cache_active && $_SERVER['REQUEST_METHOD'] == 'GET') {
@@ -121,17 +123,15 @@ class plgSystemWbPageSpeed extends JPlugin {
    */
   public function clear_docCache( $match ){
 
-    // Stage
-      $app = JFactory::getApplication();
-      $cfg = JFactory::getConfig();
-      $cacheTime = time() - ($cfg->get('cachetime') * 60);
+    // Cache Time
+      $cacheTime = time() - ($this->_cache_time * 60);
 
     // Clear Cache
       if($dir = opendir(JPATH_CACHE)) {
         while(false !== ($file = readdir($dir))) {
           $cacheFile = JPATH_CACHE.'/'.$file;
           if( preg_match($match, $file) )
-            if( true || filemtime($cacheFile) < $cacheTime )
+            if( filemtime($cacheFile) < $cacheTime )
               @unlink($cacheFile);
         }
         closedir($dir);
@@ -179,7 +179,7 @@ class plgSystemWbPageSpeed extends JPlugin {
             } while($limit-- > 0);
             $impFileData = file_get_contents(JPATH_BASE . $url);
             $_tmpPath = $_cssUrlReplace_path;
-            $_cssUrlReplace_path = split('/',$url); array_pop($_cssUrlReplace_path);
+            $_cssUrlReplace_path = explode('/',$url); array_pop($_cssUrlReplace_path);
             $impFileData =
               '/* import:'.preg_replace('/^.*\//','',$url).' */'
               . "\n"
@@ -190,6 +190,8 @@ class plgSystemWbPageSpeed extends JPlugin {
             return $impFileData;
           }
           function _cssUrlReplace($match){
+            if (preg_match('/^url\([\'\"]*data\:/', $match[0]))
+              return $match[0];
             global $_cssUrlReplace_path;
             $path = $_cssUrlReplace_path;
             $url = $match[0];
@@ -237,7 +239,7 @@ class plgSystemWbPageSpeed extends JPlugin {
           if( $styleSheetsProcess ){
 
             // Calculate Cache Filename
-              $cacheFile = JPATH_CACHE . '/' . ($template.'-'.md5(serialize(',',$styleSheetsProcess).date('Y-m-d H')).'.css');
+              $cacheFile = JPATH_CACHE . '/' . ($template.'-'.md5(serialize($styleSheetsProcess).date('Y-m-d H')).'.css');
               $cacheLink = substr($cacheFile,strlen($this->_path_root));
 
             // Clear Cache
@@ -249,9 +251,10 @@ class plgSystemWbPageSpeed extends JPlugin {
                 // Collect JS Data
                   $cssContent = '';
                   $filesProcessed = 0;
+
                   foreach( $styleSheetsProcess AS $cssFile => $cssParams ){
                     $cssFileData = file_get_contents($this->_path_root . $cssFile);
-                    $_cssUrlReplace_path = split('/',$cssFile); array_pop($_cssUrlReplace_path);
+                    $_cssUrlReplace_path = explode('/',$cssFile); array_pop($_cssUrlReplace_path);
                     $cssFileData = preg_replace_callback('/url\(.*?\)/','_cssUrlReplace',$cssFileData);
                     $cssFileData = preg_replace_callback('/\@import\s+url\(.*?\)\;*/','_cssImportReplace',$cssFileData);
                     $cssFileData = preg_replace('/\n[\t\s]+/',"\n",$cssFileData);
@@ -301,7 +304,7 @@ class plgSystemWbPageSpeed extends JPlugin {
    * @param  [type] $scripts [description]
    * @return [type]          [description]
    */
-  public function process_docScripts( $scripts ){
+  public function process_docScripts(){
 
     // Stage
       $app = JFactory::getApplication();
@@ -341,7 +344,7 @@ class plgSystemWbPageSpeed extends JPlugin {
           if( $scriptsProcess ){
 
             // Calculate Cache Filename
-              $cacheFile = JPATH_CACHE . '/' . ($template.'-'.md5(serialize(',',$scriptsProcess).date('Y-m-d H')).'.js');
+              $cacheFile = JPATH_CACHE . '/' . ($template.'-'.md5(serialize($scriptsProcess).date('Y-m-d H')).'.js');
               $cacheLink = substr($cacheFile,strlen($this->_path_root));
 
             // Clear Cache

@@ -12,6 +12,7 @@
   <config>
     <fields name="params">
       <fieldset name="basic">
+        <field name="cache_time" type="text" default="60" label="Cache Time (minutes)" description="" />
         <field name="compress_css" type="radio" default="1" label="Compress CSS" description="">
           <option value="0">No</option>
           <option value="1">Yes</option>
