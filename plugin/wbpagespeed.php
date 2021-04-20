@@ -165,19 +165,25 @@ class plgSystemWbPageSpeed extends JPlugin {
             $url = $match[0];
             $url = preg_replace('/^.*url\(|\)\;*$/','',$url);
             $url = preg_replace('/^[\'\"]+|[\'\"]+$/','',$url);
-            do {
-              if( preg_match('/^\//',$url) ){
-                break;
-              } elseif( preg_match('/^\.\.\//',$url) ){
-                $url = preg_replace('/^\.\.\//','',$url);
-                array_pop($path);
-              } elseif( preg_match('/^\.\//',$url) ){
-                $url = preg_replace('/^\.\//','',$url);
-              } else {
-                $url = implode('/',$path).'/'.$url;
-              }
-            } while($limit-- > 0);
-            $impFileData = file_get_contents(JPATH_BASE . $url);
+            if (preg_match('/^(http|https)\:/', $url))
+              $impFileData = file_get_contents($url);
+            else {
+              do {
+                if( preg_match('/^\//',$url) ){
+                  break;
+                } elseif(preg_match('/^(http|https)\:/', $url)){
+                  break;
+                } elseif( preg_match('/^\.\.\//',$url) ){
+                  $url = preg_replace('/^\.\.\//','',$url);
+                  array_pop($path);
+                } elseif( preg_match('/^\.\//',$url) ){
+                  $url = preg_replace('/^\.\//','',$url);
+                } else {
+                  $url = implode('/',$path).'/'.$url;
+                }
+              } while($limit-- > 0);
+              $impFileData = file_get_contents(JPATH_BASE . $url);
+            }
             $_tmpPath = $_cssUrlReplace_path;
             $_cssUrlReplace_path = explode('/',$url); array_pop($_cssUrlReplace_path);
             $impFileData =
@@ -190,7 +196,7 @@ class plgSystemWbPageSpeed extends JPlugin {
             return $impFileData;
           }
           function _cssUrlReplace($match){
-            if (preg_match('/^url\([\'\"]*data\:/', $match[0]))
+            if (preg_match('/^url\([\'\"]*(data|http|https)\:/', $match[0]))
               return $match[0];
             global $_cssUrlReplace_path;
             $path = $_cssUrlReplace_path;
